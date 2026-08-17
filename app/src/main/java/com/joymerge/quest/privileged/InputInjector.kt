@@ -106,7 +106,11 @@ object InputInjector {
         }
 
         if (axesChanged(previous, current)) {
-            send(buildMotionEvent(current, deviceId))
+            val motion = buildMotionEvent(current, deviceId)
+            send(motion)
+            // injectInputEvent parcels the event, so it is ours to return to the
+            // pool. At sixty-odd frames a second, not doing this adds up.
+            motion.recycle()
         }
         return failure
     }

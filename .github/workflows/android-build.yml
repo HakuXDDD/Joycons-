@@ -14,7 +14,9 @@ jobs:
   build:
     name: Build debug APK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # A cold run downloads Gradle, the Android Gradle Plugin and the whole
+    # Compose toolchain before it compiles anything. Warm runs are minutes.
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
@@ -41,19 +43,19 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          # Write the cache from every branch, not just the default one. A cold
+          # run here downloads Gradle plus the whole Compose toolchain and takes
+          # the best part of half an hour; a warm one is a couple of minutes.
+          cache-read-only: false
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Run unit tests
-        run: ./gradlew testDebugUnitTest --stacktrace
-
-      - name: Run Android Lint
-        run: ./gradlew lintDebug --stacktrace
-
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      # One Gradle invocation rather than three: each separate run pays the
+      # whole configuration and daemon start-up cost again, which on a cold
+      # runner is the difference between minutes and tens of minutes.
+      - name: Test, lint and build
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace
 
       # Named so it is obvious in the Actions UI which file to download.
       - name: Rename APK
