@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      A framework theme on purpose: the UI is entirely Jetpack Compose, so
+      pulling in the Material Components library would only add weight.
+    -->
+    <style name="Theme.JoyMergeQuest" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@color/brand_background</item>
+        <item name="android:navigationBarColor">@color/brand_background</item>
+        <item name="android:windowBackground">@color/brand_background</item>
+    </style>
+</resources>

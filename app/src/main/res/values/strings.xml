@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">JoyMerge Quest</string>
+    <string name="notification_channel_name">Virtual gamepad</string>
+    <string name="notification_channel_description">Shown while the merged Joy-Con gamepad is running.</string>
+</resources>
