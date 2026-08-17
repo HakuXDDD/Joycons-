@@ -90,9 +90,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         controller.inputDevices.devices,
         controller.evdevDevices,
         controller.store.settings,
-    ) { _, evdev, settings ->
+    ) { androidDevices, evdev, settings ->
         SlotResolution(
-            androidAssignment = controller.androidAssignment(),
+            androidAssignment = controller.resolveAndroidAssignment(androidDevices, settings),
             evdevPaths = controller.resolveEvdevPaths(evdev, settings),
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SlotResolution())

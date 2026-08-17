@@ -14,6 +14,7 @@ import com.joymerge.quest.gamepad.LoopbackBackend
 import com.joymerge.quest.gamepad.PrivilegedInjectionBackend
 import com.joymerge.quest.gamepad.UInputBackend
 import com.joymerge.quest.gamepad.VirtualGamepadBackend
+import com.joymerge.quest.input.AndroidDeviceInfo
 import com.joymerge.quest.input.InputDeviceManager
 import com.joymerge.quest.input.ForegroundInputPipeline
 import com.joymerge.quest.privileged.EvdevDeviceInfo
@@ -96,21 +97,33 @@ class JoyMergeController(context: Context) {
 
     // ---- device assignment -------------------------------------------------
 
-    /** Applies the stored (or auto-detected) Android device -> side assignment. */
-    fun applyForegroundAssignment() {
-        val settings = store.settings.value
-        val devices = inputDevices.devices.value
-        val detected = inputDevices.detectJoyCons()
-
+    /**
+     * Works out which Android device fills each slot: an explicit choice from
+     * the user first, automatic detection second.
+     *
+     * Pure with respect to its arguments so callers that already hold a devices
+     * list can resolve slots without depending on when the pipeline was last
+     * updated.
+     */
+    fun resolveAndroidAssignment(
+        devices: List<AndroidDeviceInfo>,
+        settings: AppSettings,
+    ): Map<JoyConSide, Int> {
+        val detected = JoyConDetector.assignSides(devices) { it.toCandidate() }
         val left = devices.firstOrNull { it.descriptor == settings.leftAndroidDescriptor }
             ?: detected[JoyConSide.LEFT]
         val right = devices.firstOrNull { it.descriptor == settings.rightAndroidDescriptor }
             ?: detected[JoyConSide.RIGHT]
-
-        foregroundPipeline.assignment = buildMap {
-            left?.let { put(it.deviceId, JoyConSide.LEFT) }
-            right?.let { put(it.deviceId, JoyConSide.RIGHT) }
+        return buildMap {
+            left?.let { put(JoyConSide.LEFT, it.deviceId) }
+            right?.let { put(JoyConSide.RIGHT, it.deviceId) }
         }
+    }
+
+    /** Applies the stored (or auto-detected) Android device -> side assignment. */
+    fun applyForegroundAssignment() {
+        val assignment = resolveAndroidAssignment(inputDevices.devices.value, store.settings.value)
+        foregroundPipeline.assignment = assignment.entries.associate { (side, id) -> id to side }
     }
 
     fun assignAndroidDevice(side: JoyConSide, descriptor: String?) {
