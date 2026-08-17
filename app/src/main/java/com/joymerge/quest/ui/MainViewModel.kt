@@ -80,14 +80,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (engineState.running && engineState.usesPrivilegedCapture) privilegedState else foregroundState
     }.stateIn(viewModelScope, SharingStarted.Eagerly, VirtualGamepadState.NEUTRAL)
 
+    /** Which physical device fills each slot, resolved for both input paths. */
+    private data class SlotResolution(
+        val androidAssignment: Map<JoyConSide, Int> = emptyMap(),
+        val evdevPaths: Map<JoyConSide, String> = emptyMap(),
+    )
+
+    private val slots: StateFlow<SlotResolution> = combine(
+        controller.inputDevices.devices,
+        controller.evdevDevices,
+        controller.store.settings,
+    ) { _, evdev, settings ->
+        SlotResolution(
+            androidAssignment = controller.androidAssignment(),
+            evdevPaths = controller.resolveEvdevPaths(evdev, settings),
+        )
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, SlotResolution())
+
     val statusRows: StateFlow<List<StatusRow>> = combine(
         controller.shizuku.info,
         controller.engine,
-        controller.inputDevices.devices,
         controller.store.profile,
         controller.privileged.connection,
-    ) { shizukuInfo, engineState, _, profileBundle, connection ->
-        buildStatusRows(shizukuInfo, engineState, profileBundle.androidProfile, connection)
+        slots,
+    ) { shizukuInfo, engineState, profileBundle, connection, slotResolution ->
+        buildStatusRows(shizukuInfo, engineState, profileBundle.androidProfile, connection, slotResolution)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     init {
@@ -130,12 +147,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         engineState: JoyMergeController.EngineState,
         androidProfile: MappingProfile,
         connection: PrivilegedClient.Connection,
+        slotResolution: SlotResolution,
     ): List<StatusRow> {
-        val assignment = controller.androidAssignment()
-        val evdevPaths = controller.resolveEvdevPaths(
-            controller.evdevDevices.value,
-            controller.store.settings.value,
-        )
+        val assignment = slotResolution.androidAssignment
+        val evdevPaths = slotResolution.evdevPaths
 
         fun joyConRow(side: JoyConSide): StatusRow {
             val androidDevice = assignment[side]?.let { controller.inputDevices.deviceById(it) }

@@ -9,9 +9,14 @@ import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import com.joymerge.quest.JoyMergeApp
 import com.joymerge.quest.JoyMergeController
 import com.joymerge.quest.R
 import com.joymerge.quest.ui.MainActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Keeps JoyMerge alive while the user is somewhere else.
@@ -33,7 +38,18 @@ class GamepadForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
-                stopSelf()
+                // Tear the merge down for real, not just this notification:
+                // otherwise the uinput device and the exclusive grab would
+                // outlive the service the user just dismissed.
+                val controller = (application as? JoyMergeApp)?.controller
+                if (controller == null) {
+                    stopSelf()
+                } else {
+                    CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
+                        runCatching { controller.stopGamepad() }
+                        stopSelf()
+                    }
+                }
                 return START_NOT_STICKY
             }
         }
