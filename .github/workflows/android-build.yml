@@ -14,11 +14,10 @@ jobs:
   build:
     name: Build debug APK
     runs-on: ubuntu-latest
-    # A cold run downloads Gradle, the Android Gradle Plugin and the whole
-    # Compose toolchain before it compiles anything, and the hosted runners have
-    # been slow at it. Once this run seeds the Gradle cache, later ones are
-    # minutes rather than the best part of an hour.
-    timeout-minutes: 90
+    # A cold run (Gradle distribution, AGP, the Compose toolchain, then the
+    # native build) lands around four minutes. The ceiling is generous so a slow
+    # dependency download does not fail an otherwise fine build.
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -45,18 +44,17 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          # Write the cache from every branch, not just the default one. A cold
-          # run here downloads Gradle plus the whole Compose toolchain and takes
-          # the best part of half an hour; a warm one is a couple of minutes.
+          # Write the cache from every branch, not just the default one, so
+          # feature branches get warm builds too.
           cache-read-only: false
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      # One Gradle invocation rather than several: each separate run pays the
-      # whole configuration and daemon start-up cost again. Lint deliberately
-      # stays off this path so nothing delays the APK - run ./gradlew lintDebug
-      # locally, or use the lint job below.
+      # One Gradle invocation rather than several, so configuration and daemon
+      # start-up are paid once. Lint runs in its own job below: it is advisory,
+      # and keeping it off this path means a lint regression can never cost you
+      # the APK.
       - name: Test and build
         run: ./gradlew testDebugUnitTest assembleDebug --stacktrace
 
@@ -104,7 +102,7 @@ jobs:
   lint:
     name: Android Lint
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 30
     # Advisory only. Lint findings are worth seeing, but they must never stand
     # between a push and a downloadable APK.
     continue-on-error: true
